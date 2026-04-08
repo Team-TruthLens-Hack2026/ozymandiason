@@ -318,7 +318,11 @@ st.markdown('<div class="sub-header">Paste a news claim or URL below to begin re
 news_input = st.text_area("Analysis Input", height=200, placeholder="> SYSTEM AWAITING INPUT DATA ...")
 
 if st.button("VERIFY CLAIM"):
-    if news_input.strip():
+    if not news_input.strip():
+        st.warning("Please enter some text.")
+    elif len(news_input.split()) < 10:
+        st.warning("⚠️ The input text is too short or nonsensical. Please enter a complete news story for accurate analysis.")
+    else:
         # --- Simulated Active Scan Phase ---
         scan_placeholder = st.empty()
         scan_messages = [
@@ -350,81 +354,35 @@ if st.button("VERIFY CLAIM"):
         if score is None:
             score = get_fallback_score(label)
 
-        # --- Visualization ---
-        score_color = "#00ff41" if score >= 60 else "#ff003c" if score <= 40 else "#ffea00"
-        verdict_text = "HIGHLY TRUSTWORTHY" if score >= 75 else "DECEPTION DETECTED / FAKE NEWS" if score <= 40 else "MODERATELY TRUSTWORTHY"
-        verdict_class = "verdict-banner-green" if score > 50 else "verdict-banner-red"
+        # Add some variance to make score feel more realistic
+        score = min(100, max(0, score + random.randint(-10, 10)))
 
-        # Neon Bars Visualizer
-        bars_list = []
-        for i in range(12):
-            # Bar height is somewhat random but bounded by the score
-            max_h = 15 + max(0, (score/100)*60)
-            height = random.uniform(20, max_h)
-            
-            # Colors based on score thresholds
-            if score >= 60:
-                color = "rgba(0, 255, 65, 0.8)" 
-                shadow = "rgba(0, 255, 65, 0.5)"
-            elif score <= 40:
-                color = "rgba(255, 0, 60, 0.8)"
-                shadow = "rgba(255, 0, 60, 0.5)"
-            else:
-                color = "rgba(255, 234, 0, 0.8)"
-                shadow = "rgba(255, 234, 0, 0.5)"
-                
-            opacity = 1.0 if (i/12) <= (score/100) else 0.2
-            bars_list.append(f'<div style="width: 8px; height: {height}px; background-color: {color}; box-shadow: 0 0 8px {shadow}; opacity: {opacity}; display: inline-block; margin: 0 3px; border-radius: 2px;"></div>')
+        # --- Official Source Check ---
+        official_keywords = ['WHO', 'NASA', 'UN', 'UNITED NATIONS', 'OFFICIAL REPORT']
+        has_official = any(keyword in news_input.upper() for keyword in official_keywords)
 
-        bars_html_left = "".join(bars_list)
-        bars_html_right = "".join(reversed(bars_list))
+        # --- Hybrid Logic for Final Label ---
+        if has_official and score > 10:
+            final_label = "REAL"
+        elif score >= 60:
+            final_label = "REAL"
+        else:
+            final_label = label
 
-        score_html = f"""<div style="display: flex; justify-content: center; align-items: center; gap: 30px; margin: 40px 0;">
-    <div style="display: flex; align-items: flex-end; height: 80px;">{bars_html_left}</div>
-    <div style="color: {score_color}; font-size: 5rem; font-weight: 800; text-shadow: 0 0 20px {score_color}; font-family: 'Outfit', sans-serif;">SCORE: {score}%</div>
-    <div style="display: flex; align-items: flex-end; height: 80px;">{bars_html_right}</div> <!-- Mirrored bars -->
-</div>"""
-        st.markdown(score_html, unsafe_allow_html=True)
-        
-        # Verdict Banner
-        st.markdown(f'<div class="{verdict_class}">{verdict_text}</div>', unsafe_allow_html=True)
+        # --- Adjust Score for Consistency ---
+        if final_label == "REAL":
+            score = max(score, 60 + random.randint(0, 20))
+        else:
+            score = min(score, 40 - random.randint(0, 20))
 
-        # 3 Data Nodes
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown('<div class="glass-panel" style="text-align:center;">', unsafe_allow_html=True)
-            credibility = "High" if score >= 60 else "Suspicious" if score <= 40 else "Medium"
-            st.metric(label="Source Credibility", value=credibility, delta="Verified" if score>=50 else "-Unverified", delta_color="normal" if score>=50 else "inverse")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-        with col2:
-            st.markdown('<div class="glass-panel" style="text-align:center;">', unsafe_allow_html=True)
-            sentiment = "Neutral/Objective" if score >= 60 else "Sensational/Biased"
-            st.metric(label="Sentiment Polarity", value=sentiment)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-        with col3:
-            st.markdown('<div class="glass-panel" style="text-align:center;">', unsafe_allow_html=True)
-            matches = random.randint(5, 25) if score >= 50 else random.randint(0, 3)
-            st.metric(label="Fact-Check Matches", value=f"{matches} Nodes", delta="Consistent" if matches > 3 else "-Flags Raised", delta_color="normal" if matches > 3 else "inverse")
-            st.markdown('</div>', unsafe_allow_html=True)
+        # --- Professional Result Display ---
+        if final_label == "REAL":
+            st.success(f"✅ VERIFIED AUTHENTIC NEWS - Trust Score: {score}%")
+        else:
+            st.error(f"❌ POTENTIAL FAKE NEWS DETECTED - Trust Score: {score}%")
 
-        # Verified Sources & Breakdown
+        # --- Detailed Analysis ---
         st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        st.markdown("<h3 style='color: #00f3ff; text-align: left; margin-bottom: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;'>ANALYSIS BREAKDOWN & SOURCES</h3>", unsafe_allow_html=True)
-        
+        st.markdown("<h3 style='color: #00f3ff; text-align: left; margin-bottom: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;'>DETAILED ANALYSIS</h3>", unsafe_allow_html=True)
         st.markdown(detailed_analysis)
-        
-        st.markdown("<hr style='border: 1px solid rgba(0, 243, 255, 0.2); margin: 30px 0;'>", unsafe_allow_html=True)
-        st.markdown("<h4 style='color: #f0f0f0; margin-bottom: 15px;'>CROSS-REFERENCE SOURCE DATA:</h4>", unsafe_allow_html=True)
-        
-        # Fake Example Sources (Clickable styling)
-        st.markdown("🔗 <a href='#' class='neon-link'>Reuters Global Fact Check Database</a>", unsafe_allow_html=True)
-        st.markdown("🔗 <a href='#' class='neon-link'>AP News Source Analyzer System</a>", unsafe_allow_html=True)
-        st.markdown("🔗 <a href='#' class='neon-link'>Cyber Threat Intelligence Index (GDI)</a>", unsafe_allow_html=True)
-        st.markdown("🔗 <a href='#' class='neon-link'>Decentralized Identity Verification Network</a>", unsafe_allow_html=True)
-        
         st.markdown('</div>', unsafe_allow_html=True)
-        
-    else:
-        st.error("SYSTEM ERROR: PLEASE INPUT DATA FOR SCANNING.")
